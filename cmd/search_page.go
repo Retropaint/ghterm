@@ -47,12 +47,22 @@ func (sp *SearchPage) Init() {
 		SetDirection(tview.FlexRow).
 		AddItem(sp.input, 3, 0, true).
 		AddItem(sp.list, 0, 3, false)
+
+	sp.clearList("Use the search above to find a repository!")
 }
 
 func (sp *SearchPage) search(key tcell.Key) {
-	sp.wg.Add(1)
-	sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=3")
-	sp.populateList()
+	sp.clearList("loading...")
+	go func() {
+		sp.wg.Add(1)
+		sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=3")
+		sp.clearList("")
+		sp.populateList()
+	}()
+}
+
+func (sp *SearchPage) clearList(startingText string) {
+	sp.list.SetText(startingText)
 }
 
 func (sp *SearchPage) populateList() {
