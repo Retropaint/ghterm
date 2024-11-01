@@ -49,6 +49,7 @@ func (sp *SearchPage) Init() {
 		AddItem(sp.list, 0, 3, false)
 
 	sp.clearList("Use the search above to find a repository!")
+	sp.Flex.SetInputCapture(sp.onInputCapture)
 }
 
 func (sp *SearchPage) search(key tcell.Key) {
@@ -63,6 +64,16 @@ func (sp *SearchPage) search(key tcell.Key) {
 
 func (sp *SearchPage) clearList(startingText string) {
 	sp.list.SetText(startingText)
+}
+
+func (sp *SearchPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
+	switch event.Name() {
+	case "Ctrl+L":
+		Layout.App.SetFocus(sp.list)
+	case "Ctrl+F":
+		Layout.App.SetFocus(sp.input)
+	}
+	return event
 }
 
 func (sp *SearchPage) populateList() {
