@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gdamore/tcell/v2"
@@ -16,8 +18,9 @@ type SearchResult struct {
 }
 
 type Repo struct {
-	Name      string
-	Full_name string
+	Name        string
+	Full_name   string
+	Description string
 }
 
 type SearchPage struct {
@@ -37,6 +40,8 @@ func (sp *SearchPage) Init() {
 
 	sp.list = tview.NewTextView()
 	sp.list.SetBorder(true)
+	sp.list.SetRegions(true)
+	sp.list.SetDynamicColors(true)
 
 	sp.Flex = tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -46,8 +51,17 @@ func (sp *SearchPage) Init() {
 
 func (sp *SearchPage) search(key tcell.Key) {
 	sp.wg.Add(1)
-	sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=1")
-	sp.list.SetText(sp.result.Items[0].Name)
+	sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=3")
+	sp.populateList()
+}
+
+func (sp *SearchPage) populateList() {
+	for _, r := range sp.result.Items {
+		// Since slash isn't accepted for regions, replace it with dot
+		region := strings.Replace(r.Full_name, "/", ".", 1)
+
+		fmt.Fprintln(sp.list, "[\""+region+"\"][white]"+r.Name+"[-][lightgrey] - "+r.Description+`[-][""]`)
+	}
 }
 
 func (sp *SearchPage) fetch(obj any, url string) {
