@@ -15,10 +15,6 @@ var (
 	Layout LayoutStruct
 )
 
-func (l *LayoutStruct) Refresh() {
-	l.App.Draw()
-}
-
 func (l *LayoutStruct) Run() {
 	if err := l.App.SetRoot(l.pages, true).Run(); err != nil {
 		panic(err)
