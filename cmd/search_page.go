@@ -16,12 +16,6 @@ type SearchResult struct {
 	Items       []Repo
 }
 
-type Repo struct {
-	Name        string
-	Full_name   string
-	Description string
-}
-
 type SearchPage struct {
 	*tview.Flex
 	input *tview.InputField
@@ -93,6 +87,12 @@ func (sp *SearchPage) listOnInputCapture(event *tcell.EventKey) {
 		sp.repoIndex = min(len(sp.result.Items)-1, sp.repoIndex+1)
 	case "Rune[k]":
 		sp.repoIndex = max(0, sp.repoIndex-1)
+	case "Enter":
+		Layout.RepoPage.GetRepo(sp.result.Items[sp.repoIndex].Full_name)
+		Layout.Pages.SwitchToPage("repo")
+	default:
+		Layout.App.Stop()
+		fmt.Print(event.Name())
 	}
 	sp.highlightResult()
 }
