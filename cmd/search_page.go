@@ -60,8 +60,7 @@ func (sp *SearchPage) Init() {
 func (sp *SearchPage) search(key tcell.Key) {
 	sp.clearList("[lightgrey]loading...[-]")
 	go func() {
-		sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=3")
-		sp.clearList("")
+		sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=99")
 		sp.populateList()
 		sp.repoIndex = 0
 		sp.highlightResult()
@@ -104,11 +103,17 @@ func (sp *SearchPage) highlightResult() {
 }
 
 func (sp *SearchPage) populateList() {
+	sp.clearList("")
 	for _, r := range sp.result.Items {
 		// Since slash isn't accepted for regions, replace it with dot
 		region := strings.Replace(r.Full_name, "/", ".", 1)
 
-		fmt.Fprintln(sp.list, "[\""+region+"\"][white]"+r.Name+"[-][lightgrey] - "+r.Description+`[-][""]`)
+		desc := ""
+		if r.Description != "" {
+			desc += "[-][lightgrey] - " + r.Description + `[-][""]`
+		}
+
+		fmt.Fprintln(sp.list, "[\""+region+"\"][white]"+r.Name+desc)
 	}
 }
 
