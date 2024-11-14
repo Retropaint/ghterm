@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -54,11 +53,16 @@ func (sp *SearchPage) Init() {
 func (sp *SearchPage) search(key tcell.Key) {
 	sp.clearList("[lightgrey]loading...[-]")
 	go func() {
-		sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=99")
-		sp.populateList()
-		sp.repoIndex = 0
-		sp.highlightResult()
-		Layout.App.Draw()
+		err := sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=99")
+		if err != nil {
+			sp.clearList("Something went wrong! Are you connected to the Internet?")
+			Layout.App.Draw()
+		} else {
+			sp.populateList()
+			sp.repoIndex = 0
+			sp.highlightResult()
+			Layout.App.Draw()
+		}
 	}()
 }
 
@@ -117,16 +121,16 @@ func (sp *SearchPage) populateList() {
 	}
 }
 
-func (sp *SearchPage) fetch(obj any, url string) {
-	client := &http.Client{}
-
-	request, err := http.NewRequest("GET", url, nil)
+func (sp *SearchPage) fetch(obj any, url string) error {
+	response, err := Fetch(url)	
 	if err != nil {
-	}
-
-	response, err := client.Do(request)
-	if err != nil {
+		return err
 	}
 
 	err = json.NewDecoder(response.Body).Decode(obj)
+	if err != nil {
+		return err
+	}
+	
+	return nil
 }

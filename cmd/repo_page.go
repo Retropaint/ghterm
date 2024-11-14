@@ -33,7 +33,7 @@ type RepoContent struct {
 	Path string
 }
 
-func (rp *RepoPage) Init(name string) {
+func (rp *RepoPage) Init() {
 	rp.readmeView = tview.NewTextView()
 	rp.readmeView.SetBorder(true)
 	rp.readmeView.SetTitle("README.md")
@@ -45,10 +45,6 @@ func (rp *RepoPage) Init(name string) {
 		AddItem(rp.readmeView, 0, 1, false)
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
-
-	if name != "none" {
-		rp.GetRepo(name)
-	}
 }
 
 func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
@@ -85,19 +81,26 @@ func (rp *RepoPage) GetRepo(name string) {
 
 func (rp *RepoPage) fetchRepo(user string, repo string) error {
 	// get general repo properties
-	response := Fetch("https://api.github.com/repos/" + user + "/" + repo)
-	err := json.NewDecoder(response.Body).Decode(&rp.repo)
+	response, err := Fetch("https://api.github.com/repos/" + user + "/" + repo)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode == http.StatusNotFound {
+		return errors.New("Repo doesn't exist. Press any button to return to the search page.")
+	}
+	
+	err = json.NewDecoder(response.Body).Decode(&rp.repo) 
 	if err != nil {
 		return err
 	}
 
-	if response.StatusCode == http.StatusNotFound {
-		return errors.New("Repo doesn't exist. Press any button to return to the search page.")
+	// get repo contents metadata
+	response, err = Fetch("https://api.github.com/repos/" + user + "/" + repo + "/contents") 
+	if err != nil {
+		return err
 	}
 
-	// get repo contents metadata
-	response = Fetch("https://api.github.com/repos/" + user + "/" + repo + "/contents")
-	err = json.NewDecoder(response.Body).Decode(&rp.repo.contents)
+	err = json.NewDecoder(response.Body).Decode(&rp.repo.contents) 
 	if err != nil {
 		return err
 	}
@@ -105,12 +108,17 @@ func (rp *RepoPage) fetchRepo(user string, repo string) error {
 	return nil
 }
 
-func (rp *RepoPage) fetchFile(user string, repo string, branch string, file string) {
-	response := Fetch("https://raw.githubusercontent.com/" + user + "/" + repo + "/refs/heads/" + branch + "/" + file)
+func (rp *RepoPage) fetchFile(user string, repo string, branch string, file string) error {
+	response, err := Fetch("https://raw.githubusercontent.com/" + user + "/" + repo + "/refs/heads/" + branch + "/" + file)
+	if err != nil {
+		return err
+	}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
 	respBytes := buf.String()
 
 	rp.fileContents = string(respBytes)
+
+	return nil
 }
