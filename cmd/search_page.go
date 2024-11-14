@@ -51,16 +51,20 @@ func (sp *SearchPage) Init() {
 }
 
 func (sp *SearchPage) search(key tcell.Key) {
-	sp.clearList("[lightgrey]loading...[-]")
+	sp.clearList("[lightgrey]Loading \"" + sp.input.GetText() + "\"...[-]")
 	go func() {
-		err := sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=99")
+		err := sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=5")
 		if err != nil {
-			sp.clearList("Something went wrong! Are you connected to the Internet?")
+			sp.clearList("An error occurred. Please ensure you have an Internet connection.")
 			Layout.App.Draw()
 		} else {
 			sp.populateList()
 			sp.repoIndex = 0
-			sp.highlightResult()
+			if len(sp.result.Items) > 0 {
+				sp.highlightResult()
+			} else {
+				sp.clearList("No results for \"" + sp.input.GetText() + "\".")
+			}
 			Layout.App.Draw()
 		}
 	}()
@@ -122,7 +126,7 @@ func (sp *SearchPage) populateList() {
 }
 
 func (sp *SearchPage) fetch(obj any, url string) error {
-	response, err := Fetch(url)	
+	response, err := Fetch(url)
 	if err != nil {
 		return err
 	}
@@ -131,6 +135,6 @@ func (sp *SearchPage) fetch(obj any, url string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
