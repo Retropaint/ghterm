@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/rivo/tview"
@@ -52,11 +51,6 @@ func FetchJson(url string, obj any) (*http.Response, error) {
 	json.NewDecoder(response.Body).Decode(obj)
 
 	return response, nil
-}
-
-// Exactly like Sprintf. Since URLs are the lifeblood of ghterm, cleaner syntax for it goes a long way.
-func Url(format string, a ...any) string {
-	return fmt.Sprintf(format, a...)
 }
 
 func Init() {

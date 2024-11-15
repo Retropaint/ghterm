@@ -53,7 +53,7 @@ func (sp *SearchPage) Init() {
 func (sp *SearchPage) search(key tcell.Key) {
 	sp.clearList(fmt.Sprintf("[lightgrey]Loading \"%s\"...[-]", sp.input.GetText()))
 	go func() {
-		_, err := FetchJson(Url("https://api.github.com/search/repositories?q=\"%s\"&per_page=5", sp.input.GetText()), &sp.result)
+		_, err := FetchJson(fmt.Sprintf("https://api.github.com/search/repositories?q=\"%s\"&per_page=5", sp.input.GetText()), &sp.result)
 		if err != nil {
 			sp.clearList("An error occurred. Please ensure you have an Internet connection.")
 			Layout.App.Draw()

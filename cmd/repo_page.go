@@ -93,7 +93,7 @@ func (rp *RepoPage) GetRepo(name string) {
 
 func (rp *RepoPage) fetchRepo(user string, repo string) error {
 	// get general repo properties
-	response, err := FetchJson(Url("https://api.github.com/repos/%s/%s", user, repo), &rp.repo)
+	response, err := FetchJson(fmt.Sprintf("https://api.github.com/repos/%s/%s", user, repo), &rp.repo)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (rp *RepoPage) fetchRepo(user string, repo string) error {
 	}
 
 	// get repo contents metadata
-	_, err = FetchJson(Url("https://api.github.com/repos/%s/%s/contents", user, repo), &rp.repo.contents)
+	_, err = FetchJson(fmt.Sprintf("https://api.github.com/repos/%s/%s/contents", user, repo), &rp.repo.contents)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (rp *RepoPage) fetchRepo(user string, repo string) error {
 }
 
 func (rp *RepoPage) fetchFile(user string, repo string, branch string, file string) error {
-	response, err := Fetch(Url("https://raw.githubusercontent.com/%s/%s/refs/heads/%s/%s", user, repo, branch, file))
+	response, err := Fetch(fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/refs/heads/%s/%s", user, repo, branch, file))
 	if err != nil {
 		return err
 	}
