@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +14,8 @@ import (
 type RepoPage struct {
 	*tview.Flex
 	readmeView   *tview.TextView
+	fileTree     *tview.TreeView
+	fileTreeNode *tview.TreeNode
 	fileContents string
 	repo         Repo
 	repo404      bool
@@ -40,8 +41,14 @@ func (rp *RepoPage) Init() {
 	rp.readmeView.SetTitleAlign(tview.AlignLeft)
 	rp.readmeView.SetText("Loading...")
 
+	rp.fileTree = tview.NewTreeView()
+	rp.fileTree.SetBorder(true)
+	rp.fileTree.SetTitle("Files")
+	rp.fileTree.SetTitleAlign(tview.AlignLeft)
+
 	rp.Flex = tview.NewFlex().
 		SetDirection(tview.FlexRow).
+		AddItem(rp.fileTree, 0, 1, false).
 		AddItem(rp.readmeView, 0, 1, false)
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
@@ -68,8 +75,13 @@ func (rp *RepoPage) GetRepo(name string) {
 			return
 		}
 
+		rp.fileTreeNode = tview.NewTreeNode("root")
+		rp.fileTree.SetRoot(rp.fileTreeNode)
+		rp.fileTree.SetCurrentNode(rp.fileTreeNode)
+
 		// fetch the main readme.md of this repo
 		for _, content := range rp.repo.contents {
+			rp.fileTreeNode.AddChild(tview.NewTreeNode(content.Name))
 			if strings.Index(strings.ToLower(content.Name), "readme.md") != -1 {
 				rp.fetchFile(user, repo, rp.repo.Default_branch, content.Name)
 			}
@@ -81,26 +93,16 @@ func (rp *RepoPage) GetRepo(name string) {
 
 func (rp *RepoPage) fetchRepo(user string, repo string) error {
 	// get general repo properties
-	response, err := Fetch("https://api.github.com/repos/" + user + "/" + repo)
+	response, err := FetchJson(Url("https://api.github.com/repos/%s/%s", user, repo), &rp.repo)
 	if err != nil {
 		return err
 	}
 	if response.StatusCode == http.StatusNotFound {
 		return errors.New("Repo doesn't exist. Press any button to return to the search page.")
 	}
-	
-	err = json.NewDecoder(response.Body).Decode(&rp.repo) 
-	if err != nil {
-		return err
-	}
 
 	// get repo contents metadata
-	response, err = Fetch("https://api.github.com/repos/" + user + "/" + repo + "/contents") 
-	if err != nil {
-		return err
-	}
-
-	err = json.NewDecoder(response.Body).Decode(&rp.repo.contents) 
+	_, err = FetchJson(Url("https://api.github.com/repos/%s/%s/contents", user, repo), &rp.repo.contents)
 	if err != nil {
 		return err
 	}
@@ -109,7 +111,7 @@ func (rp *RepoPage) fetchRepo(user string, repo string) error {
 }
 
 func (rp *RepoPage) fetchFile(user string, repo string, branch string, file string) error {
-	response, err := Fetch("https://raw.githubusercontent.com/" + user + "/" + repo + "/refs/heads/" + branch + "/" + file)
+	response, err := Fetch(Url("https://raw.githubusercontent.com/%s/%s/refs/heads/%s/%s", user, repo, branch, file))
 	if err != nil {
 		return err
 	}

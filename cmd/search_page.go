@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -48,12 +47,13 @@ func (sp *SearchPage) Init() {
 		AddItem(sp.list, 0, 3, false)
 
 	sp.Flex.SetInputCapture(sp.onInputCapture)
+	sp.list.SetInputCapture(sp.listOnInputCapture)
 }
 
 func (sp *SearchPage) search(key tcell.Key) {
-	sp.clearList("[lightgrey]Loading \"" + sp.input.GetText() + "\"...[-]")
+	sp.clearList(fmt.Sprintf("[lightgrey]Loading \"%s\"...[-]", sp.input.GetText()))
 	go func() {
-		err := sp.fetch(&sp.result, "https://api.github.com/search/repositories?q="+sp.input.GetText()+"&per_page=5")
+		_, err := FetchJson(Url("https://api.github.com/search/repositories?q=\"%s\"&per_page=5", sp.input.GetText()), &sp.result)
 		if err != nil {
 			sp.clearList("An error occurred. Please ensure you have an Internet connection.")
 			Layout.App.Draw()
@@ -63,7 +63,7 @@ func (sp *SearchPage) search(key tcell.Key) {
 			if len(sp.result.Items) > 0 {
 				sp.highlightResult()
 			} else {
-				sp.clearList("No results for \"" + sp.input.GetText() + "\".")
+				sp.clearList(fmt.Sprintf("No results for \"%s\".", sp.input.GetText()))
 			}
 			Layout.App.Draw()
 		}
@@ -80,29 +80,25 @@ func (sp *SearchPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 		Layout.App.SetFocus(sp.list)
 	case "Ctrl+F":
 		Layout.App.SetFocus(sp.input)
-	default:
-		sp.listOnInputCapture(event)
 	}
 	return event
 }
 
-func (sp *SearchPage) listOnInputCapture(event *tcell.EventKey) {
-	if Layout.App.GetFocus() != sp.list {
-		return
-	}
+func (sp *SearchPage) listOnInputCapture(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Name() {
 	case "Rune[j]":
 		sp.repoIndex = min(len(sp.result.Items)-1, sp.repoIndex+1)
 	case "Rune[k]":
 		sp.repoIndex = max(0, sp.repoIndex-1)
 	case "Enter":
-		Layout.RepoPage.GetRepo(sp.result.Items[sp.repoIndex].Full_name)
-		Layout.Pages.SwitchToPage("repo")
-	default:
-		Layout.App.Stop()
-		fmt.Print(event.Name())
+		OpenRepo(sp.result.Items[sp.repoIndex].Full_name)
 	}
-	sp.highlightResult()
+
+	if len(sp.result.Items) > 0 {
+		sp.highlightResult()
+	}
+
+	return event
 }
 
 func (sp *SearchPage) highlightResult() {
@@ -118,23 +114,9 @@ func (sp *SearchPage) populateList() {
 
 		desc := ""
 		if r.Description != "" {
-			desc += "[-][lightgrey] - " + r.Description + `[-][""]`
+			desc += fmt.Sprintf("[-][lightgrey] - %s [-][\"\"]", r.Description)
 		}
 
-		fmt.Fprintln(sp.list, "[\""+region+"\"][white]"+r.Name+desc)
+		fmt.Fprintln(sp.list, fmt.Sprintf("[\"%s\"][white]%s%s", region, r.Name, desc))
 	}
-}
-
-func (sp *SearchPage) fetch(obj any, url string) error {
-	response, err := Fetch(url)
-	if err != nil {
-		return err
-	}
-
-	err = json.NewDecoder(response.Body).Decode(obj)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

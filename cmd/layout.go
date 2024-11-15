@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/rivo/tview"
@@ -11,7 +13,7 @@ type LayoutStruct struct {
 	Pages      *tview.Pages
 	searchPage SearchPage
 	homePage   *tview.Flex
-	RepoPage   RepoPage
+	repoPage   RepoPage
 }
 
 var (
@@ -25,6 +27,7 @@ func (l *LayoutStruct) Run() {
 	}
 }
 
+// Basic fetch that returns a response. Uses the global client.
 func Fetch(url string) (*http.Response, error) {
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -39,18 +42,35 @@ func Fetch(url string) (*http.Response, error) {
 	return response, nil
 }
 
+// Just like Fetch(), but decodes JSON.
+func FetchJson(url string, obj any) (*http.Response, error) {
+	response, err := Fetch(url)
+	if err != nil {
+		return response, err
+	}
+
+	json.NewDecoder(response.Body).Decode(obj)
+
+	return response, nil
+}
+
+// Exactly like Sprintf. Since URLs are the lifeblood of ghterm, cleaner syntax for it goes a long way.
+func Url(format string, a ...any) string {
+	return fmt.Sprintf(format, a...)
+}
+
 func Init() {
 	Layout.App = tview.NewApplication()
 
 	Layout.searchPage.Init()
-	Layout.RepoPage.Init()
+	Layout.repoPage.Init()
 
 	Layout.Pages = tview.NewPages()
 	Layout.Pages.AddPage("search", Layout.searchPage, true, true)
-	Layout.Pages.AddPage("repo", Layout.RepoPage, true, false)
+	Layout.Pages.AddPage("repo", Layout.repoPage, true, false)
 }
 
 func OpenRepo(repo string) {
-	Layout.Pages.SwitchToPage("rupo")
-	Layout.RepoPage.GetRepo(repo)
+	Layout.Pages.SwitchToPage("repo")
+	Layout.repoPage.GetRepo(repo)
 }
