@@ -13,7 +13,7 @@ import (
 
 type RepoPage struct {
 	*tview.Flex
-	readmeView   *tview.TextView
+	fileView     *tview.TextView
 	fileTree     *tview.TreeView
 	fileTreeNode *tview.TreeNode
 	fileContents string
@@ -35,11 +35,10 @@ type RepoContent struct {
 }
 
 func (rp *RepoPage) Init() {
-	rp.readmeView = tview.NewTextView()
-	rp.readmeView.SetBorder(true)
-	rp.readmeView.SetTitle("README.md")
-	rp.readmeView.SetTitleAlign(tview.AlignLeft)
-	rp.readmeView.SetText("Loading...")
+	rp.fileView = tview.NewTextView()
+	rp.fileView.SetBorder(true) rp.fileView.SetTitle("README.md")
+	rp.fileView.SetTitleAlign(tview.AlignLeft)
+	rp.fileView.SetText("Loading...")
 
 	rp.fileTree = tview.NewTreeView()
 	rp.fileTree.SetBorder(true)
@@ -49,7 +48,7 @@ func (rp *RepoPage) Init() {
 	rp.Flex = tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(rp.fileTree, 0, 1, false).
-		AddItem(rp.readmeView, 0, 1, false)
+		AddItem(rp.fileView, 0, 1, false)
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
 }
@@ -57,6 +56,13 @@ func (rp *RepoPage) Init() {
 func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 	if rp.repo404 {
 		Layout.Pages.SwitchToPage("search")
+	}
+
+	switch event.Name() {
+	case "Ctrl+F":
+		Layout.App.SetFocus(rp.fileTree)
+	case "Ctrl+L":
+		Layout.App.SetFocus(rp.fileView)
 	}
 
 	return event
@@ -70,7 +76,7 @@ func (rp *RepoPage) GetRepo(name string) {
 
 		err := rp.fetchRepo(user, repo)
 		if err != nil {
-			rp.readmeView.SetText(fmt.Sprint(err))
+			rp.fileView.SetText(fmt.Sprint(err))
 			rp.repo404 = true
 			return
 		}
@@ -87,7 +93,7 @@ func (rp *RepoPage) GetRepo(name string) {
 			}
 		}
 
-		rp.readmeView.SetText(rp.fileContents)
+		rp.fileView.SetText(rp.fileContents)
 	}()
 }
 
