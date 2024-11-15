@@ -36,7 +36,8 @@ type RepoContent struct {
 
 func (rp *RepoPage) Init() {
 	rp.fileView = tview.NewTextView()
-	rp.fileView.SetBorder(true) rp.fileView.SetTitle("README.md")
+	rp.fileView.SetBorder(true)
+	rp.fileView.SetTitle("README.md")
 	rp.fileView.SetTitleAlign(tview.AlignLeft)
 	rp.fileView.SetText("Loading...")
 
