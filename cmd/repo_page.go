@@ -30,8 +30,9 @@ type Repo struct {
 }
 
 type RepoContent struct {
-	Name string
-	Path string
+	Name     string
+	Path     string
+	contents []RepoContent
 }
 
 func (rp *RepoPage) Init() {
@@ -52,13 +53,13 @@ func (rp *RepoPage) Init() {
 		AddItem(rp.fileView, 0, 1, false)
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
+	rp.fileTree.SetInputCapture(rp.fileTreeOnInputCapture)
 }
 
 func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 	if rp.repo404 {
 		Layout.Pages.SwitchToPage("search")
 	}
-
 	switch event.Name() {
 	case "Ctrl+F":
 		Layout.App.SetFocus(rp.fileTree)
@@ -66,6 +67,44 @@ func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 		Layout.App.SetFocus(rp.fileView)
 	}
 
+	return event
+}
+
+func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKey {
+	switch event.Name() {
+	case "Enter":
+		user := strings.Split(rp.repo.Full_name, "/")[0]
+		repo := strings.Split(rp.repo.Full_name, "/")[1]
+		go func() {
+			dirName := ""
+			for i, n := range rp.fileTree.GetPath(rp.fileTree.GetCurrentNode()) {
+				if i == 0 {
+					continue
+				} else if i > 1 {
+					dirName += "/"
+				}
+
+				dirName += n.GetText()
+			}
+			split := strings.Split(dirName, "/")
+
+			contents := rp.repo.contents
+			for i := range split {
+				for _, file := range contents {
+					if file.Name == split[i] {
+						contents = file.contents
+						break
+					}
+				}
+			}
+
+			rp.fetchFolder(user, repo, rp.repo.Default_branch, dirName, &contents)
+
+			for i := range contents {
+				rp.fileTree.GetCurrentNode().AddChild(tview.NewTreeNode(contents[i].Name))
+			}
+		}()
+	}
 	return event
 }
 
@@ -112,6 +151,18 @@ func (rp *RepoPage) fetchRepo(user string, repo string) error {
 	_, err = FetchJson(fmt.Sprintf("https://api.github.com/repos/%s/%s/contents", user, repo), &rp.repo.contents)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (rp *RepoPage) fetchFolder(user string, repo string, branch string, folderName string, folder *[]RepoContent) error {
+	response, err := FetchJson(fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s", user, repo, folderName, branch), &folder)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode == http.StatusNotFound {
+		return errors.New("Repo doesn't exist. Press any button to return to the search page.")
 	}
 
 	return nil
