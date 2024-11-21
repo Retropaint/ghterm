@@ -32,7 +32,7 @@ type Repo struct {
 type RepoContent struct {
 	Name     string
 	Path     string
-	contents []RepoContent
+	children []*RepoContent
 }
 
 func (rp *RepoPage) Init() {
@@ -75,35 +75,49 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 	case "Enter":
 		user := strings.Split(rp.repo.Full_name, "/")[0]
 		repo := strings.Split(rp.repo.Full_name, "/")[1]
-		go func() {
-			dirName := ""
-			for i, n := range rp.fileTree.GetPath(rp.fileTree.GetCurrentNode()) {
-				if i == 0 {
-					continue
-				} else if i > 1 {
-					dirName += "/"
+		node := rp.fileTree.GetCurrentNode()
+
+		filePath := ""
+		for i, n := range rp.fileTree.GetPath(node) {
+			if i == 0 {
+				continue
+			} else if i > 1 {
+				filePath += "/"
+			}
+
+			filePath += n.GetText()
+		}
+
+		var contentIdx int
+		for i, file := range rp.repo.contents {
+			if file.Path == filePath && file.Name == node.GetText() {
+				contentIdx = i
+				break
+			}
+		}
+
+		if len(rp.repo.contents[contentIdx].children) > 0 {
+			if node.IsExpanded() {
+				node.Collapse()
+			} else {
+				node.Expand()
+			}
+		} else {
+			originalName := node.GetText()
+			node.SetText(node.GetText() + " (loading)")
+
+			go func() {
+				var c []RepoContent
+				rp.fetchFolder(user, repo, rp.repo.Default_branch, filePath, &c)
+				for i, file := range c {
+					rp.repo.contents[contentIdx].children = append(rp.repo.contents[contentIdx].children, &file)
+					node.AddChild(tview.NewTreeNode(c[i].Name))
 				}
 
-				dirName += n.GetText()
-			}
-			split := strings.Split(dirName, "/")
-
-			contents := rp.repo.contents
-			for i := range split {
-				for _, file := range contents {
-					if file.Name == split[i] {
-						contents = file.contents
-						break
-					}
-				}
-			}
-
-			rp.fetchFolder(user, repo, rp.repo.Default_branch, dirName, &contents)
-
-			for i := range contents {
-				rp.fileTree.GetCurrentNode().AddChild(tview.NewTreeNode(contents[i].Name))
-			}
-		}()
+				node.SetText(originalName)
+				Layout.App.Draw()
+			}()
+		}
 	}
 	return event
 }
