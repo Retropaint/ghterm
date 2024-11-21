@@ -32,6 +32,8 @@ type Repo struct {
 type RepoContent struct {
 	Name     string
 	Path     string
+	Type     string
+	data     string
 	children []*RepoContent
 }
 
@@ -77,49 +79,57 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 		repo := strings.Split(rp.repo.Full_name, "/")[1]
 		node := rp.fileTree.GetCurrentNode()
 
-		filePath := ""
-		for i, n := range rp.fileTree.GetPath(node) {
+		nodePath := ""
+		for i, node := range rp.fileTree.GetPath(node) {
 			if i == 0 {
 				continue
 			} else if i > 1 {
-				filePath += "/"
+				nodePath += "/"
 			}
-
-			filePath += n.GetText()
+			nodePath += node.GetText()
 		}
 
 		var contentIdx int
 		for i, file := range rp.repo.contents {
-			if file.Path == filePath && file.Name == node.GetText() {
+			fmt.Println(file.Name, file.Path, nodePath)
+			if nodePath == file.Path && file.Name == node.GetText() {
 				contentIdx = i
 				break
 			}
 		}
 
-		if len(rp.repo.contents[contentIdx].children) > 0 {
-			if node.IsExpanded() {
-				node.Collapse()
-			} else {
-				node.Expand()
-			}
-		} else {
-			originalName := node.GetText()
-			node.SetText(node.GetText() + " (loading)")
-
-			go func() {
-				var c []RepoContent
-				rp.fetchFolder(user, repo, rp.repo.Default_branch, filePath, &c)
-				for i, file := range c {
-					rp.repo.contents[contentIdx].children = append(rp.repo.contents[contentIdx].children, &file)
-					node.AddChild(tview.NewTreeNode(c[i].Name))
-				}
-
-				node.SetText(originalName)
-				Layout.App.Draw()
-			}()
+		if rp.repo.contents[contentIdx].Type == "dir" {
+			rp.tryFolder(contentIdx, node, user, repo, rp.repo.contents[contentIdx].Path)
 		}
+
 	}
 	return event
+}
+
+func (rp *RepoPage) tryFolder(contentIdx int, node *tview.TreeNode, user string, repo string, filePath string) {
+	if len(rp.repo.contents[contentIdx].children) > 0 {
+		if node.IsExpanded() {
+			node.Collapse()
+		} else {
+			node.Expand()
+		}
+	} else {
+		originalName := node.GetText()
+		node.SetText(node.GetText() + " (loading)")
+
+		go func() {
+			var c []RepoContent
+			rp.fetchFolder(user, repo, rp.repo.Default_branch, filePath, &c)
+			for i, file := range c {
+				rp.repo.contents = append(rp.repo.contents, file)
+				rp.repo.contents[contentIdx].children = append(rp.repo.contents[contentIdx].children, &file)
+				node.AddChild(tview.NewTreeNode(c[i].Name))
+			}
+
+			node.SetText(originalName)
+			Layout.App.Draw()
+		}()
+	}
 }
 
 func (rp *RepoPage) GetRepo(name string) {
