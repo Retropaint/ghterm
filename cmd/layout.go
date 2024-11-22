@@ -18,6 +18,7 @@ type LayoutStruct struct {
 var (
 	Layout LayoutStruct
 	Client http.Client
+	Cfg    Config
 )
 
 func (l *LayoutStruct) Run() {
@@ -54,6 +55,12 @@ func FetchJson(url string, obj any) (*http.Response, error) {
 }
 
 func Init() {
+	err := loadCfg(&Cfg)
+	_ = Cfg
+	if err != nil {
+		panic(err)
+	}
+
 	Layout.App = tview.NewApplication()
 
 	Layout.searchPage.Init()

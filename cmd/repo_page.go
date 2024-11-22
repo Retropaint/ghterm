@@ -137,13 +137,13 @@ func (rp *RepoPage) openFile(goroutine bool) {
 	rp.fileView.SetText("Loading...")
 	rp.fileView.SetTitle(rp.repo.focusedFile.Name)
 	if !goroutine {
-		rp.outputFileToView(1)
+		rp.outputFileToView()
 		Layout.App.Draw()
 		return
 	}
 
 	go func() {
-		rp.outputFileToView(1)
+		rp.outputFileToView()
 		Layout.App.Draw()
 	}()
 }
@@ -152,9 +152,14 @@ func (rp *RepoPage) openFile(goroutine bool) {
 // 0 - basic
 // 1 - Chroma
 // 2 - Viewer of choice (via VIEWER env)
-func (rp *RepoPage) outputFileToView(outType int) error {
+func (rp *RepoPage) outputFileToView() error {
 	rp.fileView.SetText("")
 	ansi := tview.ANSIWriter(rp.fileView)
+
+	outType := 1
+	if Cfg.CodeViewer != "" {
+		outType = 2
+	}
 
 	switch outType {
 	case 0:
@@ -168,8 +173,6 @@ func (rp *RepoPage) outputFileToView(outType int) error {
 		return nil
 	case 2:
 		// make viewer (& editor) editable thru config
-		viewer := os.Getenv("VIEWER")
-
 		temp, err := os.CreateTemp("", "_*."+rp.repo.focusedFile.ext())
 		if err != nil {
 			return err
@@ -177,7 +180,7 @@ func (rp *RepoPage) outputFileToView(outType int) error {
 		temp.WriteString(rp.repo.focusedFile.data)
 		temp.Close()
 
-		cmd := exec.Command(viewer, temp.Name())
+		cmd := exec.Command(Cfg.CodeViewer, temp.Name())
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = ansi
 		cmd.Stderr = os.Stderr
@@ -188,8 +191,6 @@ func (rp *RepoPage) outputFileToView(outType int) error {
 }
 
 func (rp *RepoPage) openFileInEditor() error {
-	editor := os.Getenv("EDITOR")
-
 	temp, err := os.CreateTemp("", "_*."+rp.repo.focusedFile.ext())
 	if err != nil {
 		return err
@@ -198,7 +199,7 @@ func (rp *RepoPage) openFileInEditor() error {
 	temp.Close()
 
 	Layout.App.Suspend(func() {
-		cmd := exec.Command(editor, temp.Name())
+		cmd := exec.Command(Cfg.CodeEditor, temp.Name())
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
