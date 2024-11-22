@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/alecthomas/chroma/v2/quick"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -105,23 +106,20 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 
 		if rp.repo.contents[contentIdx].Type == "dir" {
 			rp.tryFolder(contentIdx, node, user, repo, rp.repo.contents[contentIdx].Path)
-		} else {
-			if rp.repo.contents[contentIdx].data == "" {
-				rp.fileView.SetText("Loading...")
-				rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
-				go func() {
-					rp.repo.contents[contentIdx].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
-					rp.openFile(2)
-					Layout.App.Draw()
-				}()
-			} else {
-				rp.fileView.SetText("Loading...")
-				rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
-				go func() {
-					rp.openFile(2)
-				}()
-			}
+			return event
 		}
+
+		if rp.repo.contents[contentIdx].data != "" {
+			rp.openFile(true)
+			return event
+		}
+
+		rp.fileView.SetText("Loading...")
+		rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
+		go func() {
+			rp.repo.contents[contentIdx].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
+			rp.openFile(false)
+		}()
 	}
 	return event
 }
@@ -129,38 +127,90 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 func (rp *RepoPage) fileViewOnInputCapture(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Name() {
 	case "Enter":
-		//rp.openFile(2)
+		rp.openFileInEditor()
 		return nil
 	}
 	return event
 }
 
-func (rp *RepoPage) openFile(outType int) {
-	var editor string
+func (rp *RepoPage) openFile(goroutine bool) {
+	rp.fileView.SetText("Loading...")
+	rp.fileView.SetTitle(rp.repo.focusedFile.Name)
+	if !goroutine {
+		rp.outputFileToView(1)
+		Layout.App.Draw()
+		return
+	}
+
+	go func() {
+		rp.outputFileToView(1)
+		Layout.App.Draw()
+	}()
+}
+
+// outTypes:
+// 0 - basic
+// 1 - Chroma
+// 2 - Viewer of choice (via VIEWER env)
+func (rp *RepoPage) outputFileToView(outType int) error {
+	rp.fileView.SetText("")
+	ansi := tview.ANSIWriter(rp.fileView)
+
 	switch outType {
 	case 0:
 		rp.fileView.SetText(rp.repo.focusedFile.data)
-		return
+		return nil
+	case 1:
+		err := quick.Highlight(ansi, rp.repo.focusedFile.data, rp.repo.focusedFile.ext(), "terminal", "")
+		if err != nil {
+			return err
+		}
+		return nil
 	case 2:
-		editor = os.Getenv("EDITOR")
+		// make viewer (& editor) editable thru config
+		viewer := os.Getenv("VIEWER")
+
+		temp, err := os.CreateTemp("", "_*."+rp.repo.focusedFile.ext())
+		if err != nil {
+			return err
+		}
+		temp.WriteString(rp.repo.focusedFile.data)
+		temp.Close()
+
+		cmd := exec.Command(viewer, temp.Name())
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = ansi
+		cmd.Stderr = os.Stderr
+		cmd.Run()
 	}
 
-	split := strings.Split(rp.repo.focusedFile.Name, ".")
-	temp, err := os.CreateTemp("", "_*."+split[len(split)-1])
+	return nil
+}
+
+func (rp *RepoPage) openFileInEditor() error {
+	editor := os.Getenv("EDITOR")
+
+	temp, err := os.CreateTemp("", "_*."+rp.repo.focusedFile.ext())
 	if err != nil {
-		//slog.Error("failed to create temporary file", "err", err)
-		return
+		return err
 	}
-	_, _ = temp.WriteString(rp.repo.focusedFile.data)
+	temp.WriteString(rp.repo.focusedFile.data)
 	temp.Close()
 
-	rp.fileView.SetText("")
-	cmd := exec.Command(editor, temp.Name())
-	ansi := tview.ANSIWriter(rp.fileView)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = ansi
-	cmd.Stderr = os.Stderr
-	cmd.Run()
+	Layout.App.Suspend(func() {
+		cmd := exec.Command(editor, temp.Name())
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+	})
+
+	return nil
+}
+
+func (c *RepoContent) ext() string {
+	s := strings.Split(c.Name, ".")
+	return s[len(s)-1]
 }
 
 func (rp *RepoPage) tryFolder(contentIdx int, node *tview.TreeNode, user string, repo string, filePath string) {
@@ -216,9 +266,7 @@ func (rp *RepoPage) GetRepo(name string) {
 		if len(rp.repo.contents) == 0 {
 			rp.fileView.SetText("No files were loaded.")
 		} else {
-			rp.fileView.SetText("")
-			rp.openFile(2)
-			rp.fileView.SetTitle(rp.repo.focusedFile.Name)
+			rp.openFile(true)
 		}
 
 		Layout.App.Draw()
