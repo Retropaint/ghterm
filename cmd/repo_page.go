@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -27,6 +29,7 @@ type Repo struct {
 	Description    string
 	Default_branch string
 	contents       []RepoContent
+	focusedFile    *RepoContent
 }
 
 type RepoContent struct {
@@ -43,6 +46,7 @@ func (rp *RepoPage) Init() {
 	rp.fileView.SetTitle("README.md")
 	rp.fileView.SetTitleAlign(tview.AlignLeft)
 	rp.fileView.SetText("Loading...")
+	rp.fileView.SetDynamicColors(true)
 
 	rp.fileTree = tview.NewTreeView()
 	rp.fileTree.SetBorder(true)
@@ -56,6 +60,7 @@ func (rp *RepoPage) Init() {
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
 	rp.fileTree.SetInputCapture(rp.fileTreeOnInputCapture)
+	rp.fileView.SetInputCapture(rp.fileViewOnInputCapture)
 }
 
 func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
@@ -96,25 +101,66 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 				break
 			}
 		}
+		rp.repo.focusedFile = &rp.repo.contents[contentIdx]
 
 		if rp.repo.contents[contentIdx].Type == "dir" {
 			rp.tryFolder(contentIdx, node, user, repo, rp.repo.contents[contentIdx].Path)
 		} else {
 			if rp.repo.contents[contentIdx].data == "" {
+				rp.fileView.SetText("Loading...")
+				rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
 				go func() {
 					rp.repo.contents[contentIdx].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
-					rp.fileView.SetText(rp.repo.contents[contentIdx].data)
-					rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
+					rp.openFile(2)
 					Layout.App.Draw()
 				}()
 			} else {
-				rp.fileView.SetText(rp.repo.contents[contentIdx].data)
+				rp.fileView.SetText("Loading...")
 				rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
+				go func() {
+					rp.openFile(2)
+				}()
 			}
 		}
-
 	}
 	return event
+}
+
+func (rp *RepoPage) fileViewOnInputCapture(event *tcell.EventKey) *tcell.EventKey {
+	switch event.Name() {
+	case "Enter":
+		//rp.openFile(2)
+		return nil
+	}
+	return event
+}
+
+func (rp *RepoPage) openFile(outType int) {
+	var editor string
+	switch outType {
+	case 0:
+		rp.fileView.SetText(rp.repo.focusedFile.data)
+		return
+	case 2:
+		editor = os.Getenv("EDITOR")
+	}
+
+	split := strings.Split(rp.repo.focusedFile.Name, ".")
+	temp, err := os.CreateTemp("", "_*."+split[len(split)-1])
+	if err != nil {
+		//slog.Error("failed to create temporary file", "err", err)
+		return
+	}
+	_, _ = temp.WriteString(rp.repo.focusedFile.data)
+	temp.Close()
+
+	rp.fileView.SetText("")
+	cmd := exec.Command(editor, temp.Name())
+	ansi := tview.ANSIWriter(rp.fileView)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = ansi
+	cmd.Stderr = os.Stderr
+	cmd.Run()
 }
 
 func (rp *RepoPage) tryFolder(contentIdx int, node *tview.TreeNode, user string, repo string, filePath string) {
@@ -158,22 +204,21 @@ func (rp *RepoPage) GetRepo(name string) {
 		rp.fileTree.SetRoot(rp.fileTreeNode)
 		rp.fileTree.SetCurrentNode(rp.fileTreeNode)
 
-		var readmeIdx int
-
 		// fetch the main readme.md of this repo
 		for i, content := range rp.repo.contents {
 			rp.fileTreeNode.AddChild(tview.NewTreeNode(content.Name))
 			if strings.Index(strings.ToLower(content.Name), "readme.md") != -1 {
 				rp.repo.contents[i].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, content.Name)
-				readmeIdx = i
+				rp.repo.focusedFile = &rp.repo.contents[i]
 			}
 		}
 
 		if len(rp.repo.contents) == 0 {
 			rp.fileView.SetText("No files were loaded.")
 		} else {
-			rp.fileView.SetText(rp.repo.contents[readmeIdx].data)
-			rp.fileView.SetTitle(rp.repo.contents[readmeIdx].Name)
+			rp.fileView.SetText("")
+			rp.openFile(2)
+			rp.fileView.SetTitle(rp.repo.focusedFile.Name)
 		}
 
 		Layout.App.Draw()
