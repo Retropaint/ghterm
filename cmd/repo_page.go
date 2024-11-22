@@ -50,7 +50,7 @@ func (rp *RepoPage) Init() {
 	rp.fileTree.SetTitleAlign(tview.AlignLeft)
 
 	rp.Flex = tview.NewFlex().
-		SetDirection(tview.FlexRow).
+		SetDirection(tview.FlexColumn).
 		AddItem(rp.fileTree, 0, 1, false).
 		AddItem(rp.fileView, 0, 1, false)
 
@@ -91,7 +91,6 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 
 		var contentIdx int
 		for i, file := range rp.repo.contents {
-			fmt.Println(file.Name, file.Path, nodePath)
 			if nodePath == file.Path && file.Name == node.GetText() {
 				contentIdx = i
 				break
@@ -100,6 +99,18 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 
 		if rp.repo.contents[contentIdx].Type == "dir" {
 			rp.tryFolder(contentIdx, node, user, repo, rp.repo.contents[contentIdx].Path)
+		} else {
+			if rp.repo.contents[contentIdx].data == "" {
+				go func() {
+					rp.repo.contents[contentIdx].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
+					rp.fileView.SetText(rp.repo.contents[contentIdx].data)
+					rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
+					Layout.App.Draw()
+				}()
+			} else {
+				rp.fileView.SetText(rp.repo.contents[contentIdx].data)
+				rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
+			}
 		}
 
 	}
@@ -136,8 +147,6 @@ func (rp *RepoPage) GetRepo(name string) {
 	user := strings.Split(name, "/")[0]
 	repo := strings.Split(name, "/")[1]
 	go func() {
-		defer Layout.App.Draw()
-
 		err := rp.fetchRepo(user, repo)
 		if err != nil {
 			rp.fileView.SetText(fmt.Sprint(err))
@@ -149,15 +158,25 @@ func (rp *RepoPage) GetRepo(name string) {
 		rp.fileTree.SetRoot(rp.fileTreeNode)
 		rp.fileTree.SetCurrentNode(rp.fileTreeNode)
 
+		var readmeIdx int
+
 		// fetch the main readme.md of this repo
-		for _, content := range rp.repo.contents {
+		for i, content := range rp.repo.contents {
 			rp.fileTreeNode.AddChild(tview.NewTreeNode(content.Name))
 			if strings.Index(strings.ToLower(content.Name), "readme.md") != -1 {
-				rp.fetchFile(user, repo, rp.repo.Default_branch, content.Name)
+				rp.repo.contents[i].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, content.Name)
+				readmeIdx = i
 			}
 		}
 
-		rp.fileView.SetText(rp.fileContents)
+		if len(rp.repo.contents) == 0 {
+			rp.fileView.SetText("No files were loaded.")
+		} else {
+			rp.fileView.SetText(rp.repo.contents[readmeIdx].data)
+			rp.fileView.SetTitle(rp.repo.contents[readmeIdx].Name)
+		}
+
+		Layout.App.Draw()
 	}()
 }
 
@@ -192,17 +211,15 @@ func (rp *RepoPage) fetchFolder(user string, repo string, branch string, folderN
 	return nil
 }
 
-func (rp *RepoPage) fetchFile(user string, repo string, branch string, file string) error {
+func (rp *RepoPage) fetchFile(user string, repo string, branch string, file string) (string, error) {
 	response, err := Fetch(fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/refs/heads/%s/%s", user, repo, branch, file))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
 	respBytes := buf.String()
 
-	rp.fileContents = string(respBytes)
-
-	return nil
+	return string(respBytes), nil
 }
