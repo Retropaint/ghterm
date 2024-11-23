@@ -53,10 +53,11 @@ func (sp *SearchPage) Init() {
 func (sp *SearchPage) search(key tcell.Key) {
 	sp.clearList(fmt.Sprintf("[lightgrey]Loading \"%s\"...[-]", sp.input.GetText()))
 	go func() {
-		_, err := FetchJson(fmt.Sprintf("https://api.github.com/search/repositories?q=\"%s\"&per_page=5", sp.input.GetText()), &sp.result)
+		defer Layout.App.Draw()
+		s := strings.ReplaceAll(sp.input.GetText(), " ", "_")
+		_, err := FetchJson("https://api.github.com/search/repositories?q=\""+s+"\"&per_page=5", &sp.result)
 		if err != nil {
 			sp.clearList("An error occurred. Please ensure you have an Internet connection.")
-			Layout.App.Draw()
 		} else {
 			sp.populateList()
 			sp.repoIndex = 0
@@ -65,7 +66,6 @@ func (sp *SearchPage) search(key tcell.Key) {
 			} else {
 				sp.clearList(fmt.Sprintf("No results for \"%s\".", sp.input.GetText()))
 			}
-			Layout.App.Draw()
 		}
 	}()
 }
@@ -117,6 +117,6 @@ func (sp *SearchPage) populateList() {
 			desc += fmt.Sprintf("[-][lightgrey] - %s [-][\"\"]", r.Description)
 		}
 
-		fmt.Fprintln(sp.list, fmt.Sprintf("[\"%s\"][white]%s%s", region, r.Name, desc))
+		fmt.Fprintln(sp.list, fmt.Sprintf("[\"%s\"][white]%s%s", region, r.Full_name, desc))
 	}
 }
