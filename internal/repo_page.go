@@ -20,9 +20,11 @@ type RepoPage struct {
 	fileView     *tview.TextView
 	fileTree     *tview.TreeView
 	fileTreeNode *tview.TreeNode
+	left         *tview.Flex
 	fileContents string
 	repo         Repo
 	repo404      bool
+	options      *tview.List
 }
 
 type Repo struct {
@@ -55,14 +57,29 @@ func (rp *RepoPage) Init() {
 	rp.fileTree.SetTitle("Files")
 	rp.fileTree.SetTitleAlign(tview.AlignLeft)
 
+	rp.options = tview.NewList().
+		AddItem("Commits", "", 'q', func() {}).ShowSecondaryText(false).
+		AddItem("Issues", "", 'w', func() {}).ShowSecondaryText(false).
+		AddItem("Pull requests", "", 'e', func() {}).ShowSecondaryText(false)
+
+	rp.options.SetBorder(true)
+	rp.options.SetTitle("Options")
+	rp.options.SetTitleAlign(tview.AlignLeft)
+
+	rp.left = tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(rp.fileTree, 0, 1, false).
+		AddItem(rp.options, 0, 1, false)
+
 	rp.Flex = tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(rp.fileTree, 0, 1, false).
+		AddItem(rp.left, 0, 1, false).
 		AddItem(rp.fileView, 0, 1, false)
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
 	rp.fileTree.SetInputCapture(rp.fileTreeOnInputCapture)
 	rp.fileView.SetInputCapture(rp.fileViewOnInputCapture)
+	rp.options.SetInputCapture(rp.optionsOnInputCapture)
 }
 
 func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
@@ -74,6 +91,8 @@ func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 		Layout.App.SetFocus(rp.fileTree)
 	case "Ctrl+L":
 		Layout.App.SetFocus(rp.fileView)
+	case "Ctrl+O":
+		Layout.App.SetFocus(rp.options)
 	}
 
 	return event
@@ -120,6 +139,17 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 			rp.repo.focusedFile.data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
 			rp.openFile(false)
 		}()
+	}
+	return event
+}
+
+func (rp *RepoPage) optionsOnInputCapture(event *tcell.EventKey) *tcell.EventKey {
+	idx := rp.options.GetCurrentItem()
+	switch event.Name() {
+	case "Rune[j]":
+		rp.options.SetCurrentItem(idx + 1)
+	case "Rune[k]":
+		rp.options.SetCurrentItem(idx - 1)
 	}
 	return event
 }
