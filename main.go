@@ -2,18 +2,18 @@ package main
 
 import (
 	"flag"
-	"github.com/Retropaint/ghterm/cmd"
+	"github.com/Retropaint/ghterm/internal"
 )
 
 func main() {
-	cmd.Init()
+	internal.Init()
 
 	repo := flag.String("repo", "none", "Instantly opens a repo. \nExample: --repo retropaint/ghterm")
 	flag.Parse()
-	
+
 	if *repo != "none" {
-		cmd.OpenRepo(*repo)
+		internal.OpenRepo(*repo)
 	}
 
-	cmd.Layout.Run()
+	internal.Layout.Run()
 }
