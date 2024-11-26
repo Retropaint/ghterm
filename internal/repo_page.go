@@ -1,4 +1,4 @@
-package cmd
+package internal
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/Retropaint/ghterm/internal/config"
 	"github.com/alecthomas/chroma/v2/quick"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -92,32 +93,31 @@ func (rp *RepoPage) fileTreeOnInputCapture(event *tcell.EventKey) *tcell.EventKe
 			} else if i > 1 {
 				nodePath += "/"
 			}
+
 			nodePath += node.GetText()
 		}
 
-		var contentIdx int
 		for i, file := range rp.repo.contents {
 			if nodePath == file.Path && file.Name == node.GetText() {
-				contentIdx = i
+				rp.repo.focusedFile = &rp.repo.contents[i]
 				break
 			}
 		}
-		rp.repo.focusedFile = &rp.repo.contents[contentIdx]
 
-		if rp.repo.contents[contentIdx].Type == "dir" {
-			rp.tryFolder(contentIdx, node, user, repo, rp.repo.contents[contentIdx].Path)
+		if rp.repo.focusedFile.Type == "dir" {
+			rp.tryFolder(node, user, repo, rp.repo.focusedFile.Path)
 			return event
 		}
 
-		if rp.repo.contents[contentIdx].data != "" {
+		if rp.repo.focusedFile.data != "" {
 			rp.openFile(true)
 			return event
 		}
 
 		rp.fileView.SetText("Loading...")
-		rp.fileView.SetTitle(rp.repo.contents[contentIdx].Name)
+		rp.fileView.SetTitle(rp.repo.focusedFile.Name)
 		go func() {
-			rp.repo.contents[contentIdx].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
+			rp.repo.focusedFile.data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, nodePath)
 			rp.openFile(false)
 		}()
 	}
@@ -157,7 +157,7 @@ func (rp *RepoPage) outputFileToView() error {
 	ansi := tview.ANSIWriter(rp.fileView)
 
 	outType := 1
-	if Cfg.CodeViewer != "" {
+	if config.Cfg.CodeViewer != "" {
 		outType = 2
 	}
 
@@ -172,7 +172,6 @@ func (rp *RepoPage) outputFileToView() error {
 		}
 		return nil
 	case 2:
-		// make viewer (& editor) editable thru config
 		temp, err := os.CreateTemp("", "_*."+rp.repo.focusedFile.ext())
 		if err != nil {
 			return err
@@ -180,7 +179,12 @@ func (rp *RepoPage) outputFileToView() error {
 		temp.WriteString(rp.repo.focusedFile.data)
 		temp.Close()
 
-		cmd := exec.Command(Cfg.CodeViewer, temp.Name())
+		var cmd *exec.Cmd
+		if config.Cfg.CodeViewerParams != "" {
+			cmd = exec.Command(config.Cfg.CodeViewer, config.Cfg.CodeViewerParams, temp.Name())
+		} else {
+			cmd = exec.Command(config.Cfg.CodeViewer, temp.Name())
+		}
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = ansi
 		cmd.Stderr = os.Stderr
@@ -199,7 +203,13 @@ func (rp *RepoPage) openFileInEditor() error {
 	temp.Close()
 
 	Layout.App.Suspend(func() {
-		cmd := exec.Command(Cfg.CodeEditor, temp.Name())
+
+		var cmd *exec.Cmd
+		if config.Cfg.CodeEditorParams != "" {
+			cmd = exec.Command(config.Cfg.CodeEditor, config.Cfg.CodeEditorParams, temp.Name())
+		} else {
+			cmd = exec.Command(config.Cfg.CodeEditor, temp.Name())
+		}
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -214,30 +224,35 @@ func (c *RepoContent) ext() string {
 	return s[len(s)-1]
 }
 
-func (rp *RepoPage) tryFolder(contentIdx int, node *tview.TreeNode, user string, repo string, filePath string) {
-	if len(rp.repo.contents[contentIdx].children) > 0 {
+func (rp *RepoPage) tryFolder(node *tview.TreeNode, user string, repo string, filePath string) {
+	if len(rp.repo.focusedFile.children) > 0 {
 		if node.IsExpanded() {
 			node.Collapse()
 		} else {
 			node.Expand()
 		}
-	} else {
-		originalName := node.GetText()
-		node.SetText(node.GetText() + " (loading)")
-
-		go func() {
-			var c []RepoContent
-			rp.fetchFolder(user, repo, rp.repo.Default_branch, filePath, &c)
-			for i, file := range c {
-				rp.repo.contents = append(rp.repo.contents, file)
-				rp.repo.contents[contentIdx].children = append(rp.repo.contents[contentIdx].children, &file)
-				node.AddChild(tview.NewTreeNode(c[i].Name))
-			}
-
-			node.SetText(originalName)
-			Layout.App.Draw()
-		}()
+		return
 	}
+	originalName := node.GetText()
+	node.SetText(node.GetText() + " (loading)")
+
+	go func() {
+		var c []RepoContent
+		rp.fetchFolder(user, repo, rp.repo.Default_branch, filePath, &c)
+		for _, file := range c {
+			rp.repo.focusedFile.children = append(rp.repo.focusedFile.children, &file)
+			new := tview.NewTreeNode(file.Name)
+			node.AddChild(new)
+			if file.Type == "dir" {
+				new.SetColor(tcell.ColorPurple)
+			}
+			rp.repo.contents = append(rp.repo.contents, file)
+		}
+
+		node.SetText(originalName)
+		Layout.App.Draw()
+	}()
+
 }
 
 func (rp *RepoPage) GetRepo(name string) {
@@ -256,10 +271,14 @@ func (rp *RepoPage) GetRepo(name string) {
 		rp.fileTree.SetCurrentNode(rp.fileTreeNode)
 
 		// fetch the main readme.md of this repo
-		for i, content := range rp.repo.contents {
-			rp.fileTreeNode.AddChild(tview.NewTreeNode(content.Name))
-			if strings.Index(strings.ToLower(content.Name), "readme.md") != -1 {
-				rp.repo.contents[i].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, content.Name)
+		for i, file := range rp.repo.contents {
+			new := tview.NewTreeNode(file.Name)
+			rp.fileTreeNode.AddChild(new)
+			if file.Type == "dir" {
+				new.SetColor(tcell.ColorPurple)
+			}
+			if strings.Index(strings.ToLower(file.Name), "readme.md") != -1 {
+				rp.repo.contents[i].data, _ = rp.fetchFile(user, repo, rp.repo.Default_branch, file.Name)
 				rp.repo.focusedFile = &rp.repo.contents[i]
 			}
 		}

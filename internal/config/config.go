@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"os"
@@ -8,18 +8,26 @@ import (
 )
 
 type Config struct {
-	CodeViewer string `toml:"code_viewer"`
-	CodeEditor string `toml:"code_editor"`
+	CodeViewer       string `toml:"code_viewer"`
+	CodeViewerParams string `toml:"code_viewer_params"`
+	CodeEditor       string `toml:"code_editor"`
+	CodeEditorParams string `toml:"code_editor_params"`
 }
+
+var (
+	Cfg Config
+)
 
 func defaultConfig() Config {
 	return Config{
-		CodeViewer: "",
-		CodeEditor: "",
+		CodeViewer:       "",
+		CodeEditor:       "",
+		CodeViewerParams: "",
+		CodeEditorParams: "",
 	}
 }
 
-func loadCfg(cfg *Config) error {
+func LoadCfg() error {
 	path, err := os.UserConfigDir()
 	if err != nil {
 		path = "."
@@ -28,7 +36,7 @@ func loadCfg(cfg *Config) error {
 	path = filepath.Join(path, "ghterm", "config.toml")
 	f, err := os.Open(path)
 
-	*cfg = defaultConfig()
+	Cfg = defaultConfig()
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -38,7 +46,7 @@ func loadCfg(cfg *Config) error {
 	}
 	defer f.Close()
 
-	_, err = toml.NewDecoder(f).Decode(&cfg)
+	_, err = toml.NewDecoder(f).Decode(&Cfg)
 	if err != nil {
 		return err
 	}

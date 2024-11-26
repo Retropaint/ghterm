@@ -1,9 +1,10 @@
-package cmd
+package internal
 
 import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Retropaint/ghterm/internal/config"
 	"github.com/rivo/tview"
 )
 
@@ -18,7 +19,6 @@ type LayoutStruct struct {
 var (
 	Layout LayoutStruct
 	Client http.Client
-	Cfg    Config
 )
 
 func (l *LayoutStruct) Run() {
@@ -33,6 +33,8 @@ func Fetch(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	//request.Header.Set("Authorization", "ghp_zCgtRbrhrrREbLDTOtWiG5yDbrk3gJ4HUga")
 
 	response, err := Client.Do(request)
 	if err != nil {
@@ -55,8 +57,7 @@ func FetchJson(url string, obj any) (*http.Response, error) {
 }
 
 func Init() {
-	err := loadCfg(&Cfg)
-	_ = Cfg
+	err := config.LoadCfg()
 	if err != nil {
 		panic(err)
 	}
