@@ -3,14 +3,14 @@ module github.com/Retropaint/ghterm
 go 1.23.2
 
 require (
+	github.com/BurntSushi/toml v1.4.0
+	github.com/alecthomas/chroma/v2 v2.13.0
 	github.com/gdamore/tcell/v2 v2.7.1
 	github.com/rivo/tview v0.0.0-20241016194538-c5e4fb24af13
 	github.com/yorukot/ansichroma v0.1.0
 )
 
 require (
-	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/alecthomas/chroma/v2 v2.13.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/lipgloss v0.10.0 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
