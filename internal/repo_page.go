@@ -34,6 +34,7 @@ type Repo struct {
 	Default_branch string
 	contents       []RepoContent
 	focusedFile    *RepoContent
+	Commits        []Commit
 }
 
 type RepoContent struct {
@@ -150,6 +151,11 @@ func (rp *RepoPage) optionsOnInputCapture(event *tcell.EventKey) *tcell.EventKey
 		rp.options.SetCurrentItem(idx + 1)
 	case "Rune[k]":
 		rp.options.SetCurrentItem(idx - 1)
+	case "Enter":
+		m, _ := rp.options.GetItemText(idx)
+		if m == "Commits" {
+			OpenCommits(rp.repo.Full_name)
+		}
 	}
 	return event
 }
@@ -286,6 +292,9 @@ func (rp *RepoPage) tryFolder(node *tview.TreeNode, user string, repo string, fi
 }
 
 func (rp *RepoPage) GetRepo(name string) {
+	// immediately set Full_name so options pages can work without having to load the repo
+	rp.repo.Full_name = name
+
 	user := strings.Split(name, "/")[0]
 	repo := strings.Split(name, "/")[1]
 	go func() {

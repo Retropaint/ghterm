@@ -9,11 +9,12 @@ import (
 )
 
 type LayoutStruct struct {
-	App        *tview.Application
-	Pages      *tview.Pages
-	searchPage SearchPage
-	homePage   *tview.Flex
-	repoPage   RepoPage
+	App         *tview.Application
+	Pages       *tview.Pages
+	searchPage  SearchPage
+	repoPage    RepoPage
+	commitsPage CommitsPage
+	homePage    *tview.Flex
 }
 
 var (
@@ -66,13 +67,20 @@ func Init() {
 
 	Layout.searchPage.Init()
 	Layout.repoPage.Init()
+	Layout.commitsPage.Init()
 
 	Layout.Pages = tview.NewPages()
 	Layout.Pages.AddPage("search", Layout.searchPage, true, true)
 	Layout.Pages.AddPage("repo", Layout.repoPage, true, false)
+	Layout.Pages.AddPage("Commits", Layout.commitsPage, true, true)
 }
 
 func OpenRepo(repo string) {
 	Layout.Pages.SwitchToPage("repo")
 	Layout.repoPage.GetRepo(repo)
+}
+
+func OpenCommits(repo string) {
+	Layout.Pages.SwitchToPage("Commits")
+	Layout.commitsPage.GetCommits(repo)
 }
