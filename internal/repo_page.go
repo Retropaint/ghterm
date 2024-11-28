@@ -339,7 +339,7 @@ func (rp *RepoPage) fetchRepo(user string, repo string) error {
 		return err
 	}
 	if response.StatusCode == http.StatusNotFound {
-		return errors.New("Repo doesn't exist. Press any button to return to the search page.")
+		return errors.New("Github returned 404 (Not Found). Press any button to return to the search page.")
 	}
 
 	// get repo contents metadata
