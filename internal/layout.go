@@ -72,7 +72,7 @@ func Init() {
 	Layout.Pages = tview.NewPages()
 	Layout.Pages.AddPage("search", Layout.searchPage, true, true)
 	Layout.Pages.AddPage("repo", Layout.repoPage, true, false)
-	Layout.Pages.AddPage("Commits", Layout.commitsPage, true, true)
+	Layout.Pages.AddPage("Commits", Layout.commitsPage, true, false)
 }
 
 func OpenRepo(repo string) {
