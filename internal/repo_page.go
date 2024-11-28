@@ -34,7 +34,7 @@ type Repo struct {
 	Default_branch string
 	contents       []RepoContent
 	focusedFile    *RepoContent
-	Commits        []Commit
+	Commits        []BriefCommit
 }
 
 type RepoContent struct {

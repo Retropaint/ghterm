@@ -14,6 +14,7 @@ type LayoutStruct struct {
 	searchPage  SearchPage
 	repoPage    RepoPage
 	commitsPage CommitsPage
+	commitPage  CommitPage
 	homePage    *tview.Flex
 }
 
@@ -68,11 +69,13 @@ func Init() {
 	Layout.searchPage.Init()
 	Layout.repoPage.Init()
 	Layout.commitsPage.Init()
+	Layout.commitPage.Init()
 
 	Layout.Pages = tview.NewPages()
 	Layout.Pages.AddPage("search", Layout.searchPage, true, true)
 	Layout.Pages.AddPage("repo", Layout.repoPage, true, false)
-	Layout.Pages.AddPage("Commits", Layout.commitsPage, true, false)
+	Layout.Pages.AddPage("commits", Layout.commitsPage, true, false)
+	Layout.Pages.AddPage("commit", Layout.commitPage, true, false)
 }
 
 func OpenRepo(repo string) {
@@ -81,6 +84,11 @@ func OpenRepo(repo string) {
 }
 
 func OpenCommits(repo string) {
-	Layout.Pages.SwitchToPage("Commits")
+	Layout.Pages.SwitchToPage("commits")
 	Layout.commitsPage.GetCommits(repo)
+}
+
+func OpenCommit(repo string, sha string) {
+	Layout.Pages.SwitchToPage("commit")
+	Layout.commitPage.OpenCommit(repo, sha, "")
 }

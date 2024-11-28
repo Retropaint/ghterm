@@ -14,13 +14,15 @@ import (
 type CommitsPage struct {
 	*tview.Flex
 	commitsList *tview.TextView
-	commits     []Commit
+	commits     []BriefCommit
 	commitsIdx  int
+	repo        string
 }
 
-type Commit struct {
+type BriefCommit struct {
 	Author CommitAuthor
 	Commit CommitBody
+	Sha    string
 }
 
 type CommitAuthor struct {
@@ -51,6 +53,7 @@ func (c *CommitsPage) Init() {
 }
 
 func (c *CommitsPage) GetCommits(repo string) {
+	c.repo = repo
 	go func() {
 		err := c.fetchCommits(repo)
 		if err != nil {
@@ -83,6 +86,7 @@ func (c *CommitsPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 	case "Rune[k]":
 		c.commitsIdx = max(c.commitsIdx-1, 0)
 	case "Enter":
+		OpenCommit(c.repo, c.commits[c.commitsIdx].Sha)
 	}
 	c.commitsList.Highlight(strconv.Itoa(c.commitsIdx))
 	c.commitsList.ScrollToHighlight()
