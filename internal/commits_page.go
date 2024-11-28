@@ -27,8 +27,13 @@ type CommitAuthor struct {
 	Login string
 }
 
+type CommitBodyAuthor struct {
+	Date string
+}
+
 type CommitBody struct {
 	Message string
+	Author  CommitBodyAuthor
 }
 
 func (c *CommitsPage) Init() {
@@ -64,6 +69,7 @@ func (c *CommitsPage) populateList() {
 		fmt.Fprint(c.commitsList, fmt.Sprintf("[\"%d\"]", i))
 		fmt.Fprintln(c.commitsList, co.Commit.Message)
 		fmt.Fprintln(c.commitsList, "[aqua]"+co.Author.Login+"[-]")
+		fmt.Fprintln(c.commitsList, "[grey]"+co.Commit.Author.Date+"[-]")
 		fmt.Fprintln(c.commitsList)
 		fmt.Fprint(c.commitsList, "[\"\"]")
 	}
