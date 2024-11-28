@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -45,7 +47,12 @@ func (c *CommitsPage) Init() {
 
 func (c *CommitsPage) GetCommits(repo string) {
 	go func() {
-		c.fetchCommits(repo)
+		err := c.fetchCommits(repo)
+		if err != nil {
+			c.commitsList.SetText(err.Error())
+			return
+		}
+
 		c.populateList()
 		Layout.App.Draw()
 	}()
@@ -79,9 +86,12 @@ func (c *CommitsPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
 func (c *CommitsPage) fetchCommits(repo string) error {
 	user := strings.Split(repo, "/")[0]
 	repoName := strings.Split(repo, "/")[1]
-	_, err := FetchJson(fmt.Sprintf("https://api.github.com/repos/%s/%s/commits", user, repoName), &c.commits)
+	r, err := FetchJson(fmt.Sprintf("https://api.github.com/repos/%s/%s/commits", user, repoName), &c.commits)
 	if err != nil {
 		return err
+	}
+	if r.StatusCode == http.StatusNotFound {
+		return errors.New("Github returned 404 (Not Found). Press any button to return to the search page.")
 	}
 	return nil
 }
