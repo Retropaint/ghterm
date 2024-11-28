@@ -8,15 +8,16 @@ import (
 func main() {
 	internal.Init()
 
-	repo := flag.String("repo", "none", "Instantly opens a repo. \nExample: --repo retropaint/ghterm")
-	commits := flag.String("commits", "none", "Instantly opens commits for repoo. \nExample: --commits retropaint/ghterm")
+	isCommits := flag.Bool("commits", false, "See commits for repository defined by --repo")
+	repo := flag.String("repo", "none", "Points to a repo for other flags, or opens it's main page if none are provided. \nExample: --repo retropaint/ghterm")
 	flag.Parse()
 
 	if *repo != "none" {
-		internal.OpenRepo(*repo)
-	}
-	if *commits != "none" {
-		internal.OpenCommits(*commits)
+		if *isCommits {
+			internal.OpenCommits(*repo)
+		} else {
+			internal.OpenRepo(*repo)
+		}
 	}
 
 	internal.Layout.Run()
