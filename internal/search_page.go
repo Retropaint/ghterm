@@ -57,7 +57,7 @@ func (sp *SearchPage) search(key tcell.Key) {
 		s := strings.ReplaceAll(sp.input.GetText(), " ", "_")
 		_, err := FetchJson("https://api.github.com/search/repositories?q=\""+s+"\"&per_page=5", &sp.result)
 		if err != nil {
-			sp.clearList("An error occurred. Please ensure you have an Internet connection.")
+			sp.clearList(err.Error())
 		} else {
 			sp.populateList()
 			sp.repoIndex = 0
