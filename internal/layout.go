@@ -38,7 +38,9 @@ func Fetch(url string) (*http.Response, error) {
 		return nil, err
 	}
 
-	//request.Header.Set("Authorization", "ghp_zCgtRbrhrrREbLDTOtWiG5yDbrk3gJ4HUga")
+	if config.Cfg.Token != "" {
+		request.Header.Set("Authorization", config.Cfg.Token)
+	}
 
 	response, err := Client.Do(request)
 	if err != nil {
