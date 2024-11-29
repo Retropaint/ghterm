@@ -18,6 +18,8 @@ func main() {
 		} else {
 			internal.OpenRepo(*repo)
 		}
+	} else {
+		internal.SwitchToPage("search")
 	}
 
 	internal.Layout.Run()

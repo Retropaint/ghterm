@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Retropaint/ghterm/internal/config"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -16,6 +17,7 @@ type LayoutStruct struct {
 	commitsPage CommitsPage
 	commitPage  CommitPage
 	homePage    *tview.Flex
+	pageHistory []string
 }
 
 var (
@@ -65,6 +67,7 @@ func Init() {
 	}
 
 	Layout.App = tview.NewApplication()
+	Layout.App.SetInputCapture(Layout.onInputCapture)
 
 	Layout.searchPage.Init()
 	Layout.repoPage.Init()
@@ -79,16 +82,36 @@ func Init() {
 }
 
 func OpenRepo(repo string) {
-	Layout.Pages.SwitchToPage("repo")
+	SwitchToPage("repo")
+	Layout.repoPage.Reset()
 	Layout.repoPage.GetRepo(repo)
 }
 
 func OpenCommits(repo string) {
-	Layout.Pages.SwitchToPage("commits")
+	SwitchToPage("commits")
+	Layout.repoPage.Reset()
 	Layout.commitsPage.GetCommits(repo)
 }
 
 func OpenCommit(repo string, sha string) {
-	Layout.Pages.SwitchToPage("commit")
+	SwitchToPage("commit")
+	Layout.commitPage.Reset()
 	Layout.commitPage.OpenCommit(repo, sha, "")
+}
+
+func (l *LayoutStruct) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
+	switch event.Name() {
+	case "Backspace2":
+		if len(l.pageHistory) == 1 {
+			return event
+		}
+		SwitchToPage(l.pageHistory[len(l.pageHistory)-2])
+		l.pageHistory = l.pageHistory[:len(l.pageHistory)-2]
+	}
+	return event
+}
+
+func SwitchToPage(page string) {
+	Layout.Pages.SwitchToPage(page)
+	Layout.pageHistory = append(Layout.pageHistory, page)
 }

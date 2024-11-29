@@ -52,6 +52,10 @@ func (c *CommitsPage) Init() {
 	c.Flex.SetTitleAlign(tview.AlignLeft)
 }
 
+func (c *CommitsPage) Reset() {
+	c.commitsList.SetText("Loading...")
+}
+
 func (c *CommitsPage) GetCommits(repo string) {
 	c.repo = repo
 	go func() {

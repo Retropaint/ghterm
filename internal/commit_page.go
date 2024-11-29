@@ -10,10 +10,9 @@ import (
 
 type CommitPage struct {
 	*tview.Flex
-	fileTree     *tview.TreeView
-	fileTreeNode *tview.TreeNode
-	patch        *tview.TextView
-	commit       Commit
+	fileTree *tview.TreeView
+	patch    *tview.TextView
+	commit   Commit
 }
 
 type Commit struct {
@@ -29,9 +28,7 @@ type CommitFiles struct {
 
 func (c *CommitPage) Init() {
 	c.fileTree = tview.NewTreeView()
-	c.fileTreeNode = tview.NewTreeNode("root")
-	c.fileTree.SetRoot(c.fileTreeNode)
-	c.fileTree.SetCurrentNode(c.fileTreeNode)
+	c.fileTree.SetRoot(tview.NewTreeNode("root"))
 	c.fileTree.SetBorder(true)
 
 	c.patch = tview.NewTextView()
@@ -40,12 +37,18 @@ func (c *CommitPage) Init() {
 
 	c.Flex = tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(c.fileTree, 0, 1, false).
+		AddItem(c.fileTree, 0, 1, true).
 		AddItem(c.patch, 0, 1, false)
 	c.Flex.SetBorder(true)
 
 	c.Flex.SetInputCapture(c.onInputCapture)
 	c.fileTree.SetInputCapture(c.fileTreeOnInputCapture)
+}
+
+func (c *CommitPage) Reset() {
+	c.fileTree.GetRoot().ClearChildren()
+	c.fileTree.SetCurrentNode(c.fileTree.GetRoot())
+	c.patch.SetText("Loading...")
 }
 
 func (c *CommitPage) OpenCommit(repo string, sha string, name string) {
@@ -59,16 +62,20 @@ func (c *CommitPage) OpenCommit(repo string, sha string, name string) {
 
 		// add color codes to patches
 		for i, f := range c.commit.Files {
-			c.fileTreeNode.AddChild(tview.NewTreeNode(f.Filename))
-			f := &c.commit.Files[i].Patch
-			*f = strings.ReplaceAll(*f, "\n", "[-]\n")
-			*f = strings.ReplaceAll(*f, "\n-", "[red]\n-")
-			*f = strings.ReplaceAll(*f, "\n+", "[green]\n+")
-			*f = strings.ReplaceAll(*f, "@@\n", "[-]@@\n")
-			*f = strings.ReplaceAll(*f, "@@", "[purple]@@")
+
+			fp := &c.commit.Files[i].Patch
+			c.fileTree.GetRoot().AddChild(tview.NewTreeNode(f.Filename))
+			*fp = "[purple] " + *fp
+			*fp = strings.ReplaceAll(*fp, "\n", "[-]\n")
+			*fp = strings.ReplaceAll(*fp, "\n-", "[red]\n-")
+			*fp = strings.ReplaceAll(*fp, "\n+", "[green]\n+")
+			*fp = strings.ReplaceAll(*fp, "\n@@", "[purple]\n@@")
+			*fp = strings.ReplaceAll(*fp, " @@ ", " @@\n[-]")
+			*fp = strings.Replace(*fp, " @@\n[-]", "@@", 0)
 		}
 
 		c.patch.SetText(c.commit.Files[0].Patch)
+		c.fileTree.SetCurrentNode(c.fileTree.GetRoot())
 		Layout.App.Draw()
 	}()
 }

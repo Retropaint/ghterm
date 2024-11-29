@@ -19,7 +19,6 @@ type RepoPage struct {
 	*tview.Flex
 	fileView     *tview.TextView
 	fileTree     *tview.TreeView
-	fileTreeNode *tview.TreeNode
 	left         *tview.Flex
 	fileContents string
 	repo         Repo
@@ -58,6 +57,8 @@ func (rp *RepoPage) Init() {
 	rp.fileTree.SetTitle("Files")
 	rp.fileTree.SetTitleAlign(tview.AlignLeft)
 
+	rp.fileTree.SetRoot(tview.NewTreeNode("root"))
+
 	rp.options = tview.NewList().
 		AddItem("Commits", "", 'q', func() {}).ShowSecondaryText(false).
 		AddItem("Issues", "", 'w', func() {}).ShowSecondaryText(false).
@@ -69,18 +70,23 @@ func (rp *RepoPage) Init() {
 
 	rp.left = tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(rp.fileTree, 0, 1, false).
+		AddItem(rp.fileTree, 0, 1, true).
 		AddItem(rp.options, 0, 1, false)
 
 	rp.Flex = tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(rp.left, 0, 1, false).
+		AddItem(rp.left, 0, 1, true).
 		AddItem(rp.fileView, 0, 1, false)
 
 	rp.Flex.SetInputCapture(rp.onInputCapture)
 	rp.fileTree.SetInputCapture(rp.fileTreeOnInputCapture)
 	rp.fileView.SetInputCapture(rp.fileViewOnInputCapture)
 	rp.options.SetInputCapture(rp.optionsOnInputCapture)
+}
+
+func (rp *RepoPage) Reset() {
+	rp.fileTree.GetRoot().ClearChildren()
+	rp.fileTree.SetCurrentNode(rp.fileTree.GetRoot())
 }
 
 func (rp *RepoPage) onInputCapture(event *tcell.EventKey) *tcell.EventKey {
@@ -305,14 +311,10 @@ func (rp *RepoPage) GetRepo(name string) {
 			return
 		}
 
-		rp.fileTreeNode = tview.NewTreeNode("root")
-		rp.fileTree.SetRoot(rp.fileTreeNode)
-		rp.fileTree.SetCurrentNode(rp.fileTreeNode)
-
 		// fetch the main readme.md of this repo
 		for i, file := range rp.repo.contents {
 			new := tview.NewTreeNode(file.Name)
-			rp.fileTreeNode.AddChild(new)
+			rp.fileTree.GetRoot().AddChild(new)
 			if file.Type == "dir" {
 				new.SetColor(tcell.ColorPurple)
 			}
@@ -323,11 +325,12 @@ func (rp *RepoPage) GetRepo(name string) {
 		}
 
 		if len(rp.repo.contents) == 0 {
-			rp.fileView.SetText("No files were loaded.")
+			rp.fileView.SetText("No files were loaded.\nYou may be rate-limited, so please provide your access token via the --token flag, or by setting $GITTOKEN in env.")
 		} else {
 			rp.openFile(true)
 		}
 
+		rp.fileTree.SetCurrentNode(rp.fileTree.GetRoot())
 		Layout.App.Draw()
 	}()
 }
